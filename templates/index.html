@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transcript Summarizer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen">
+
+  <div class="w-full max-w-2xl bg-white p-8 rounded-2xl shadow-lg">
+    <h1 class="text-2xl font-bold text-center mb-6">Transcript Summarizer</h1>
+
+    <!-- File Upload Form -->
+    <form method="POST" enctype="multipart/form-data" class="flex flex-col gap-4 mb-6">
+      <input type="hidden" name="action" value="file">
+      <input type="file" name="file" accept=".txt" class="p-2 border rounded-md">
+      
+      <!-- Instruction Input -->
+      <input type="text" name="instruction" placeholder="What do you want? (Summarize, Convert to points, etc.)"
+             class="p-2 border rounded-md">
+
+      <button type="submit"
+              class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg">
+        Upload & Process
+      </button>
+    </form>
+
+    <!-- Custom Text Form -->
+    <form method="POST" class="flex flex-col gap-4 mb-6">
+      <input type="hidden" name="action" value="custom">
+      <textarea name="custom_text" rows="6" placeholder="Or paste your text here..."
+                class="w-full p-2 border rounded-md"></textarea>
+
+      <!-- Instruction Input -->
+      <input type="text" name="instruction" placeholder="What do you want? (Summarize, Convert to points, etc.)"
+             class="p-2 border rounded-md">
+
+      <button type="submit"
+              class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg">
+        Process Custom Text
+      </button>
+    </form>
+
+    <!-- Editable Summary Section -->
+    {% if summary %}
+    <form method="POST" action="/send_email" class="flex flex-col gap-4">
+      <div class="p-4 bg-gray-100 rounded-lg max-h-96 overflow-y-auto">
+        <h2 class="text-lg font-bold mb-2">Edit Summary:</h2>
+        <textarea name="edited_summary" rows="10"
+                  class="w-full p-2 border rounded-md">{{ summary }}</textarea>
+      </div>
+
+      <!-- Sender Email -->
+      <input type="email" name="sender_email" placeholder="Your Gmail"
+             class="p-2 border rounded-md" required>
+
+      <!-- Sender Password (with show/hide toggle) -->
+      <div class="relative">
+        <input type="password" name="sender_password" id="sender_password"
+               placeholder="Your Gmail App Password"
+               class="p-2 border rounded-md w-full pr-10" required>
+        <button type="button" onclick="togglePassword()" 
+                class="absolute right-2 top-2 text-sm text-blue-500">
+          Show
+        </button>
+      </div>
+
+      <!-- Recipient Email -->
+      <input type="email" name="recipient" placeholder="Recipient Email"
+             class="p-2 border rounded-md" required>
+
+      <!-- Send Button -->
+      <button type="submit"
+              class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg">
+        Send via Email
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- Password Toggle Script -->
+  <script>
+    function togglePassword() {
+      const passField = document.getElementById("sender_password");
+      const btn = event.target;
+      if (passField.type === "password") {
+        passField.type = "text";
+        btn.textContent = "Hide";
+      } else {
+        passField.type = "password";
+        btn.textContent = "Show";
+      }
+    }
+  </script>
+
+</body>
+</html>
