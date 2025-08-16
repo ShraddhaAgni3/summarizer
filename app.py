@@ -9,8 +9,8 @@ app.secret_key = "your_secret_key"
 
 # ---- Simple text processor ----
 def process_text(text, instruction):
-    summary = text[:500] + "..." if len(text) > 500 else text
-    return f"Instruction: {instruction}\n\n{summary}"
+    # Return the full text with the instruction prepended
+    return f"Instruction: {instruction}\n\n{text}"
 
 # ---- Main Page ----
 @app.route("/", methods=["GET", "POST"])
