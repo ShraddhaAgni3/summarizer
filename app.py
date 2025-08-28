@@ -1,66 +1,113 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+from flask import Flask, render_template, request
+import PyPDF2
+from PIL import Image
+import pytesseract
+import requests
+import base64
 
-# Initialize Flask app
 app = Flask(__name__)
-app.secret_key = "your_secret_key"
+pytesseract.pytesseract.tesseract_cmd = r"C:\Users\shrad\OneDrive\Desktop\tesseract.exe"
+GEMINI_API_KEY = "AIzaSyAypH3InhmxS9OZZTpbAX0ePgDZ08a3cC4"  # Replace with your real key
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={GEMINI_API_KEY}"
 
-# ---- Simple text processor ----
-def process_text(text, instruction):
-    # Return the full text with the instruction prepended
-    return f"Instruction: {instruction}\n\n{text}"
+def extract_text_from_pdf(file):
+    text = ""
+    reader = PyPDF2.PdfReader(file)
+    for page in reader.pages:
+        page_text = page.extract_text()
+        if page_text:
+            text += page_text
+    return text
 
-# ---- Main Page ----
+def extract_text_from_image(file):
+    image = Image.open(file)
+    text = pytesseract.image_to_string(image)
+    return text
+
+def prepare_image_for_gemini(file):
+    img_bytes = file.read()
+    img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+    return {
+        "inline_data": {
+            "mime_type": "image/jpeg",
+            "data": img_b64
+        }
+    }
+
+def get_summary(text=None, image_part=None, length="medium"):
+    headers = {"Content-Type": "application/json"}
+    prompt = f"Summarize the following content in a {length} length without Markdown symbols (*, **, -)."
+    parts = [{"text": prompt}]
+    if text:
+        parts.append({"text": text})
+    if image_part:
+        parts.append(image_part)
+    data = {"contents": [{"parts": parts}]}
+
+    response = requests.post(GEMINI_API_URL, headers=headers, json=data)
+    if response.status_code == 200:
+        try:
+            return response.json()["candidates"][0]["content"]["parts"][0]["text"]
+        except (KeyError, IndexError):
+            return "No summary returned"
+    else:
+        return f"Error: {response.status_code} - {response.text}"
+
+def get_areas_of_improvement(text=None, image_part=None):
+    headers = {"Content-Type": "application/json"}
+    prompt = (
+        "Based on the following content, provide 'Areas of Improvement'. "
+        "List them as simple bullet points without Markdown symbols (*, **, -)."
+    )
+    parts = [{"text": prompt}]
+    if text:
+        parts.append({"text": text})
+    if image_part:
+        parts.append(image_part)
+    data = {"contents": [{"parts": parts}]}
+
+    response = requests.post(GEMINI_API_URL, headers=headers, json=data)
+    if response.status_code == 200:
+        try:
+            raw_text = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+            cleaned = []
+            seen = set()
+            for line in raw_text.splitlines():
+                line = line.strip()
+                if not line: 
+                    continue
+                line = line.lstrip("*").lstrip("-").lstrip().replace("**", "").strip()
+                if line.lower() not in seen:
+                    cleaned.append("• " + line)
+                    seen.add(line.lower())
+            return "\n".join(cleaned)
+        except (KeyError, IndexError):
+            return "No areas of improvement returned"
+    else:
+        return f"Error: {response.status_code} - {response.text}"
+
 @app.route("/", methods=["GET", "POST"])
 def index():
-    summary = None
+    summary, improvements = "", ""
     if request.method == "POST":
-        action = request.form.get("action")   # either "file" or "custom"
-        instruction = request.form.get("instruction", "Summarize")
+        file = request.files.get("file")
+        summary_length = request.form.get("summary_length", "medium")
+        if file:
+            filename = file.filename.lower()
+            if filename.endswith(".pdf"):
+                text = extract_text_from_pdf(file)
+                if text.strip():
+                    summary = get_summary(text=text, length=summary_length)
+                    improvements = get_areas_of_improvement(text=text)
+                else:
+                    summary = "No text found in PDF."
+            elif filename.endswith((".png", ".jpg", ".jpeg")):
+                image_part = prepare_image_for_gemini(file)
+                summary = get_summary(image_part=image_part, length=summary_length)
+                improvements = get_areas_of_improvement(image_part=image_part)
+            else:
+                summary = "Unsupported file format."
+    return render_template("index.html", summary=summary, improvements=improvements)
 
-        if action == "file":
-            file = request.files["file"]
-            if file:
-                transcript = file.read().decode("utf-8", errors="ignore")
-                summary = process_text(transcript, instruction)
-        elif action == "custom":
-            custom_text = request.form.get("custom_text")
-            if custom_text.strip():
-                summary = process_text(custom_text, instruction)
-
-    return render_template("index.html", summary=summary)
-
-# ---- Email Sending ----
-@app.route("/send_email", methods=["POST"])
-def send_email():
-    edited_summary = request.form["edited_summary"]
-    recipient = request.form["recipient"]
-
-    # ✅ Now sender email & password will come from the UI
-    sender_email = request.form["sender_email"]
-    sender_password = request.form["sender_password"]
-    subject = "Shared Summary"
-
-    msg = MIMEMultipart()
-    msg["From"] = sender_email
-    msg["To"] = recipient
-    msg["Subject"] = subject
-    msg.attach(MIMEText(edited_summary, "plain"))
-
-    try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.sendmail(sender_email, recipient, msg.as_string())
-        server.quit()
-        flash("✅ Email sent successfully!", "success")
-    except Exception as e:
-        flash(f"❌ Failed to send email: {str(e)}", "error")
-
-    return redirect(url_for("index"))
-
-# ---- Run Server ----
 if __name__ == "__main__":
     app.run(debug=True)

@@ -3,95 +3,98 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Transcript Summarizer</title>
+  <title>Document Summarizer</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .dragover { border-color: #f87171; background-color: #fee2e2; }
+  </style>
 </head>
-<body class="bg-gray-50 flex items-center justify-center min-h-screen">
+<body class="bg-gray-50 min-h-screen flex flex-col items-center py-12">
 
-  <div class="w-full max-w-2xl bg-white p-8 rounded-2xl shadow-lg">
-    <h1 class="text-2xl font-bold text-center mb-6">Transcript Summarizer</h1>
+  <header class="mb-12 text-center px-4">
+    <h1 class="text-4xl font-bold text-gray-800 tracking-tight">📄 Document Summarizer</h1>
+    <p class="mt-3 text-gray-600 text-lg">Upload a PDF or image to generate summary and improvements</p>
+  </header>
 
-    <!-- File Upload Form -->
-    <form method="POST" enctype="multipart/form-data" class="flex flex-col gap-4 mb-6">
-      <input type="hidden" name="action" value="file">
-      <input type="file" name="file" accept=".txt" class="p-2 border rounded-md">
+  <form method="POST" enctype="multipart/form-data"
+        class="bg-white p-6 sm:p-8 rounded-3xl shadow-lg w-full max-w-lg border border-gray-200"
+        id="uploadForm">
+    
+    <div id="dropZone" 
+         class="mb-4 relative border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer transition-all hover:border-gray-400">
       
-      <!-- Instruction Input -->
-      <input type="text" name="instruction" placeholder="What do you want? (Summarize, Convert to points, etc.)"
-             class="p-2 border rounded-md">
-
-      <button type="submit"
-              class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg">
-        Upload & Process
-      </button>
-    </form>
-
-    <!-- Custom Text Form -->
-    <form method="POST" class="flex flex-col gap-4 mb-6">
-      <input type="hidden" name="action" value="custom">
-      <textarea name="custom_text" rows="6" placeholder="Or paste your text here..."
-                class="w-full p-2 border rounded-md"></textarea>
-
-      <!-- Instruction Input -->
-      <input type="text" name="instruction" placeholder="What do you want? (Summarize, Convert to points, etc.)"
-             class="p-2 border rounded-md">
-
-      <button type="submit"
-              class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg">
-        Process Custom Text
-      </button>
-    </form>
-
-    <!-- Editable Summary Section -->
-    {% if summary %}
-    <form method="POST" action="/send_email" class="flex flex-col gap-4">
-      <div class="p-4 bg-gray-100 rounded-lg max-h-96 overflow-y-auto">
-        <h2 class="text-lg font-bold mb-2">Edit Summary:</h2>
-        <textarea name="edited_summary" rows="10"
-                  class="w-full p-2 border rounded-md">{{ summary }}</textarea>
+      <p class="text-gray-500 mb-1">Drag & drop file here or click to select</p>
+      <p class="text-gray-400 text-sm">Supports PDF, PNG, JPG, JPEG</p>
+      <input type="file" name="file" id="fileInput" accept=".pdf,image/*" required
+             class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+      
+      <div id="fileInfo" class="mt-2 text-gray-700 text-sm hidden flex justify-between items-center px-2 py-1 bg-gray-100 rounded">
+        <span id="fileName" class="truncate"></span>
+        <button type="button" id="removeBtn" class="text-red-600 font-semibold ml-2">✖ remove</button>
       </div>
+    </div>
 
-      <!-- Sender Email -->
-      <input type="email" name="sender_email" placeholder="Your Gmail"
-             class="p-2 border rounded-md" required>
+    <button type="submit"
+            class="bg-gray-800 text-white px-6 py-3 rounded-xl font-semibold shadow hover:bg-gray-900 transition-all w-full text-lg">
+      Summarize
+    </button>
+  </form>
 
-      <!-- Sender Password (with show/hide toggle) -->
-      <div class="relative">
-        <input type="password" name="sender_password" id="sender_password"
-               placeholder="Your Gmail App Password"
-               class="p-2 border rounded-md w-full pr-10" required>
-        <button type="button" onclick="togglePassword()" 
-                class="absolute right-2 top-2 text-sm text-blue-500">
-          Show
-        </button>
-      </div>
+  {% if summary %}
+  <div class="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8 w-full max-w-6xl px-4">
 
-      <!-- Recipient Email -->
-      <input type="email" name="recipient" placeholder="Recipient Email"
-             class="p-2 border rounded-md" required>
+    <div class="bg-green-50 p-6 sm:p-8 rounded-2xl border border-green-200 shadow-md hover:shadow-lg transition-all">
+      <h2 class="text-3xl font-bold text-red-700 mb-4 flex items-center gap-3">📌 Summary</h2>
+      <p class="text-gray-700 leading-relaxed whitespace-pre-line text-lg">{{ summary }}</p>
+    </div>
 
-      <!-- Send Button -->
-      <button type="submit"
-              class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg">
-        Send via Email
-      </button>
-    </form>
+    {% if improvements %}
+    <div class="bg-red-50 p-6 sm:p-8 rounded-2xl border border-red-200 shadow-md hover:shadow-lg transition-all">
+      <h2 class="text-3xl font-bold text-red-700 mb-4 flex items-center gap-3">⚡ Areas of Improvement</h2>
+      <p class="text-gray-700 leading-relaxed whitespace-pre-line text-lg">{{ improvements }}</p>
+    </div>
     {% endif %}
-  </div>
 
-  <!-- Password Toggle Script -->
+  </div>
+  {% endif %}
+
   <script>
-    function togglePassword() {
-      const passField = document.getElementById("sender_password");
-      const btn = event.target;
-      if (passField.type === "password") {
-        passField.type = "text";
-        btn.textContent = "Hide";
+    const fileInput = document.getElementById("fileInput");
+    const dropZone = document.getElementById("dropZone");
+    const removeBtn = document.getElementById("removeBtn");
+    const fileInfo = document.getElementById("fileInfo");
+    const fileName = document.getElementById("fileName");
+
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.classList.add("dragover");
+    });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("dragover");
+      fileInput.files = e.dataTransfer.files;
+      showFileInfo();
+    });
+
+    fileInput.addEventListener("change", showFileInfo);
+
+    function showFileInfo() {
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        fileName.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        fileInfo.classList.remove("hidden");
       } else {
-        passField.type = "password";
-        btn.textContent = "Show";
+        fileInfo.classList.add("hidden");
       }
     }
+
+    removeBtn.addEventListener("click", () => {
+      fileInput.value = "";
+      fileInfo.classList.add("hidden");
+    });
   </script>
 
 </body>
