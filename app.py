@@ -1,14 +1,22 @@
+from dotenv import load_dotenv
+load_dotenv()
 from flask import Flask, render_template, request
 import PyPDF2
 from PIL import Image
 import pytesseract
 import requests
 import base64
+import os
 
 app = Flask(__name__)
-pytesseract.pytesseract.tesseract_cmd = r"C:\Users\shrad\OneDrive\Desktop\tesseract.exe"
-GEMINI_API_KEY = "AIzaSyAypH3InhmxS9OZZTpbAX0ePgDZ08a3cC4"  # Replace with your real key
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY not set in environment variables")
+
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={GEMINI_API_KEY}"
+
+pytesseract.pytesseract.tesseract_cmd = r"C:\Users\shrad\OneDrive\Desktop\tesseract.exe"
 
 def extract_text_from_pdf(file):
     text = ""
@@ -19,20 +27,10 @@ def extract_text_from_pdf(file):
             text += page_text
     return text
 
-def extract_text_from_image(file):
-    image = Image.open(file)
-    text = pytesseract.image_to_string(image)
-    return text
-
 def prepare_image_for_gemini(file):
     img_bytes = file.read()
     img_b64 = base64.b64encode(img_bytes).decode("utf-8")
-    return {
-        "inline_data": {
-            "mime_type": "image/jpeg",
-            "data": img_b64
-        }
-    }
+    return {"inline_data": {"mime_type": "image/jpeg", "data": img_b64}}
 
 def get_summary(text=None, image_part=None, length="medium"):
     headers = {"Content-Type": "application/json"}
@@ -74,7 +72,7 @@ def get_areas_of_improvement(text=None, image_part=None):
             seen = set()
             for line in raw_text.splitlines():
                 line = line.strip()
-                if not line: 
+                if not line:
                     continue
                 line = line.lstrip("*").lstrip("-").lstrip().replace("**", "").strip()
                 if line.lower() not in seen:
@@ -110,4 +108,4 @@ def index():
     return render_template("index.html", summary=summary, improvements=improvements)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
